@@ -48,7 +48,12 @@ public class WildfireController {
     @DeleteMapping("/users/{id}") public void deleteUser(@PathVariable Long id) { userRepository.deleteById(id); }
 
     @GetMapping("/regions") public List<Region> getRegions() { return regionRepository.findAll(); }
-    @PostMapping("/regions") public Region createRegion(@RequestBody Region r) { return regionRepository.save(r); }
+    @PostMapping("/regions")
+    public Region createRegion(@RequestBody Region r) {
+        // fortam salvarea datelor
+        r.setCountry("Custom Added");
+        return regionRepository.save(r);
+    }
     @DeleteMapping("/regions/{id}") public void deleteRegion(@PathVariable Long id) { regionRepository.deleteById(id); }
 
     @GetMapping("/assessments") public List<RiskAssessment> getAllAssessments() { return riskAssessmentRepository.findAll(); }
@@ -90,8 +95,15 @@ public class WildfireController {
 
     @PostMapping("/sync/trigger")
     public ResponseEntity<String> triggerManualSync() {
-        wildfireService.fetchActiveWildfiresAndProcessRisk();
-        return ResponseEntity.ok("Sincronizare executată!");
+        new Thread(() -> {
+            try {
+                wildfireService.fetchActiveWildfiresAndProcessRisk();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        return ResponseEntity.ok("Sincronizare executată în fundal!");
     }
 
     // analiza comparativa

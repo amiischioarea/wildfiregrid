@@ -26,7 +26,12 @@
 
         <div class="divider"></div>
         <h3 class="panel-title">📍 Manual Coordinates</h3>
-        <p style="font-size: 11px; color: #8b949e; margin-bottom: 5px;">Enter custom GPS coordinates to scan and monitor.</p>
+        <p style="font-size: 11px; color: #8b949e; margin-bottom: 10px;">Enter custom GPS coordinates to scan and monitor.</p>
+
+        <!-- BUTON NOU: GET DEVICE LOCATION -->
+        <button class="action-btn" style="background-color: #2ea043; border: none; margin-bottom: 15px; color: white;" @click="getUserLocation">
+          🎯 Get My Device Location
+        </button>
 
         <input v-model="manualRegionName" placeholder="Region Name (e.g. My Forest)" class="custom-input" style="margin-bottom: 5px;" />
 
@@ -48,7 +53,6 @@
           📡 Search Fires (NASA)
         </button>
         <button class="action-btn" @click="resetMap">🗑️ Reset Map View</button>
-        <button class="action-btn" @click="fetchHotspots">🔄 Refresh Live Telemetry</button>
 
         <!-- BUTON SETARI / CONT -->
         <button class="action-btn" style="background-color: #2ea043; border-color: #3fb950; margin-top: 20px;" @click="showSettingsModal = true">
@@ -172,8 +176,8 @@
         <div class="cards-container">
           <div v-for="fire in confirmedFires" :key="fire.regionId" class="fire-confirmed-card">
             <h4>🔥 {{ fire.regionName }}</h4>
-            <p>• Status: Active hotspot detected by satellites.</p>
-            <p>• Lat: {{ fire.centerLatitude != null ? fire.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ fire.centerLongitude != null ? fire.centerLongitude.toFixed(2) : 'N/A' }}</p>
+            <p>Status: Active hotspot detected by satellites.</p>
+            <p>Lat: {{ fire.centerLatitude != null ? fire.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ fire.centerLongitude != null ? fire.centerLongitude.toFixed(2) : 'N/A' }}</p>
           </div>
           <p v-if="confirmedFires.length === 0" style="color: #00ff66;">✅ No fire events in this continent.</p>
         </div>
@@ -184,8 +188,8 @@
         <div class="cards-container">
           <div v-for="warn in warningZones" :key="warn.regionId" class="fire-warning-card">
             <h4 style="color: #ffcc00; margin-bottom: 5px;">⚠️ {{ warn.regionName }}</h4>
-            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">• Status: Increased risk of ignition.</p>
-            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">• Lat: {{ warn.centerLatitude != null ? warn.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ warn.centerLongitude != null ? warn.centerLongitude.toFixed(2) : 'N/A' }}</p>
+            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">Status: Increased risk of ignition.</p>
+            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">Lat: {{ warn.centerLatitude != null ? warn.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ warn.centerLongitude != null ? warn.centerLongitude.toFixed(2) : 'N/A' }}</p>
           </div>
           <p v-if="warningZones.length === 0" style="color: #8b949e;">No secondary risk advisory zones in this area.</p>
         </div>
@@ -194,11 +198,11 @@
 
     <!-- FEREASTRA MODALĂ PENTRU SETĂRI / CONT -->
     <div v-if="showSettingsModal" class="modal-overlay" @click.self="showSettingsModal = false">
-      <div class="modal-content">
+      <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column;">
         <button class="close-btn" @click="showSettingsModal = false">✖</button>
         <h2 style="margin-bottom: 20px; color: #00d2ff;">👤 My Account & Settings</h2>
 
-        <div v-if="!currentUser">
+        <div v-if="!currentUser" style="overflow-y: auto;">
           <div style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button
                 :style="{ backgroundColor: authMode === 'login' ? '#004080' : '#1e2636' }"
@@ -231,17 +235,29 @@
           </div>
         </div>
 
-        <div v-else>
+        <div v-else style="overflow-y: auto; padding-right: 10px;">
           <h3 style="color: #00ff66;">Hello, {{ currentUser.fullName || 'User' }}!</h3>
-          <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Email: {{ currentUser.email }}</p>
+          <p style="font-size: 13px; color: #8b949e; margin-bottom: 15px;">Email: {{ currentUser.email }}</p>
 
-          <div class="divider"></div>
-          <h3 style="margin-bottom: 10px;">🔔 Add an Alert Subscription</h3>
-          <p style="font-size: 13px; color: #d0d7de; margin-bottom: 10px;">Select a region detected live or enter a new one:</p>
+          <!-- LISTA DE ABONAMENTE -->
+          <div class="divider" style="margin: 10px 0;"></div>
+          <h3 style="margin-bottom: 10px; color: #00d2ff; font-size: 1.1rem;">📋 My Subscriptions</h3>
+          <div v-if="userSubscriptions.length === 0">
+            <p style="font-size: 12px; color: #8b949e; margin-bottom: 15px;">You don't have any active subscriptions.</p>
+          </div>
+          <ul v-else style="list-style: none; padding: 0; max-height: 120px; overflow-y: auto; margin-bottom: 15px;">
+            <li v-for="sub in userSubscriptions" :key="sub.subscriptionId" style="background: #1e2636; padding: 8px; margin-bottom: 5px; border-radius: 5px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #2ea043;">
+              <span>📍 {{ sub.regionNameKeyword || (sub.region ? sub.region.regionName : 'Unknown Region') }}</span>
+              <span style="color: #00ff66; font-size: 11px;" v-if="sub.notifyByEmail">📧 Email Alert</span>
+            </li>
+          </ul>
 
-          <div style="margin-bottom: 15px;">
+          <div class="divider" style="margin: 10px 0;"></div>
+          <h3 style="margin-bottom: 10px; font-size: 1.1rem;">🔔 Add New Alert</h3>
+
+          <div style="margin-bottom: 10px;">
             <label style="font-size: 12px; color: #8b949e;">Select a region from the live hotspots:</label>
-            <select v-model="subForm.selectedRegionId" class="custom-select" @change="subForm.customRegionName = ''">
+            <select v-model="subForm.selectedRegionId" class="custom-select" @change="subForm.customRegionName = ''" style="padding: 8px; margin-top: 5px;">
               <option value="" disabled selected>-- Select from active hotspots --</option>
               <option v-for="h in filteredHotspots" :key="h.regionId" :value="h.regionId">
                 {{ h.regionName }}
@@ -251,20 +267,20 @@
 
           <div style="margin-bottom: 15px;">
             <label style="font-size: 12px; color: #8b949e;">Or enter a custom region/country name:</label>
-            <input v-model="subForm.customRegionName" placeholder="ex: Romania, California, Attica..." class="custom-input" @input="subForm.selectedRegionId = ''" />
+            <input v-model="subForm.customRegionName" placeholder="ex: Romania, California..." class="custom-input" @input="subForm.selectedRegionId = ''" style="padding: 8px; margin-top: 5px; margin-bottom: 5px;" />
           </div>
 
           <div style="display: flex; align-items: center; margin-bottom: 10px;">
-            <input type="checkbox" id="notifyEmail" v-model="subForm.notifyByEmail" style="margin-right: 10px; width: 18px; height: 18px;" />
-            <label for="notifyEmail" style="cursor: pointer; color: white;">Send me email alerts</label>
+            <input type="checkbox" id="notifyEmail" v-model="subForm.notifyByEmail" style="margin-right: 10px; width: 16px; height: 16px;" />
+            <label for="notifyEmail" style="cursor: pointer; color: white; font-size: 13px;">Send me email alerts</label>
           </div>
 
-          <button class="action-btn" style="background-color: #2ea043; border-color: #3fb950; margin-top: 15px;" @click="createSubscription">
+          <button class="action-btn" style="background-color: #2ea043; border-color: #3fb950; margin-top: 5px;" @click="createSubscription">
             ➕ Save Subscription
           </button>
 
-          <div class="divider"></div>
-          <button class="action-btn" style="background-color: #3b1219; border-color: #ff0033;" @click="logoutUser">
+          <div class="divider" style="margin: 15px 0;"></div>
+          <button class="action-btn" style="background-color: #3b1219; border-color: #ff0033; margin-top: 0;" @click="logoutUser">
             🚪 Disconnect
           </button>
         </div>
@@ -350,6 +366,7 @@ const showSettingsModal = ref(false);
 const authMode = ref('login');
 const loginEmail = ref('');
 const currentUser = ref(null);
+const userSubscriptions = ref([]); // Lista cu abonamentele utilizatorului logat
 
 const userForm = ref({
   fullName: '',
@@ -369,6 +386,7 @@ onMounted(() => {
   if (savedUser) {
     try {
       currentUser.value = JSON.parse(savedUser);
+      fetchUserSubscriptions(); // Descărcăm abonamentele la pornire dacă e deja logat
     } catch (e) {
       localStorage.removeItem('wildfire_user');
     }
@@ -377,6 +395,29 @@ onMounted(() => {
   setupWebSockets();
   fetchHotspots();
 });
+
+// NOU: Funcția care cere browserului coordonatele GPS
+function getUserLocation() {
+  if (navigator.geolocation) {
+    alert("Te rugăm să accepți permisiunea de locație în browser...");
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+          manualLat.value = parseFloat(position.coords.latitude.toFixed(4));
+          manualLon.value = parseFloat(position.coords.longitude.toFixed(4));
+          if (!manualRegionName.value) {
+            manualRegionName.value = "My Current Location";
+          }
+          alert(`✅ Locație detectată cu succes!\nLat: ${manualLat.value}\nLon: ${manualLon.value}`);
+        },
+        (error) => {
+          console.error("Eroare locație:", error);
+          alert("❌ Nu am putut prelua locația. Verifică dacă ai dat permisiuni browserului.");
+        }
+    );
+  } else {
+    alert("Browserul tău nu suportă funcția de geolocalizare.");
+  }
+}
 
 function handleContinentChange() {
   const cfg = continentConfigs[selectedContinent.value] || continentConfigs.all;
@@ -476,6 +517,21 @@ function generateAiReport() {
       });
 }
 
+// NOU: Descarcă abonamentele și le filtrează doar pe cele ale utilizatorului curent
+function fetchUserSubscriptions() {
+  if (!currentUser.value) return;
+  const uid = currentUser.value.userId || currentUser.value.user_id || currentUser.value.id;
+
+  axios.get('http://localhost:8080/api/v1/subscriptions')
+      .then(res => {
+        userSubscriptions.value = res.data.filter(sub => {
+          const subUid = sub.user?.userId || sub.user?.user_id || sub.user?.id;
+          return subUid === uid;
+        });
+      })
+      .catch(err => console.error("Eroare la aducerea abonamentelor:", err));
+}
+
 function loginUser() {
   if (!loginEmail.value) {
     alert("Please enter your email address!");
@@ -490,6 +546,7 @@ function loginUser() {
         if (found) {
           currentUser.value = found;
           localStorage.setItem('wildfire_user', JSON.stringify(found));
+          fetchUserSubscriptions(); // Actualizăm lista imediat ce s-a logat
           alert(`You have successfully logged in! Hello, ${found.fullName || found.email}!`);
         } else {
           alert("I couldn't find an account with this email address. Create a new account!");
@@ -518,6 +575,7 @@ function createUser() {
       .then(res => {
         currentUser.value = res.data;
         localStorage.setItem('wildfire_user', JSON.stringify(res.data));
+        userSubscriptions.value = []; // Fiind cont nou, e gol
         alert("Account successfully created!");
       })
       .catch(err => {
@@ -528,6 +586,7 @@ function createUser() {
 
 function logoutUser() {
   currentUser.value = null;
+  userSubscriptions.value = [];
   localStorage.removeItem('wildfire_user');
 }
 
@@ -559,6 +618,7 @@ function createSubscription() {
         alert(`You have successfully subscribed to alerts for "${targetRegionName}"!`);
         subForm.value.selectedRegionId = '';
         subForm.value.customRegionName = '';
+        fetchUserSubscriptions(); // Reimprospătăm lista ca să apară cel nou adăugat
       })
       .catch(err => {
         alert("Error adding the subscription. Check the IntelliJ console.");
@@ -691,6 +751,7 @@ function fetchHotspots() {
   axios.get('http://localhost:8080/api/v1/regions')
       .then(response => {
         hotspots.value = response.data || [];
+        markerLayers.value.clearLayers();
         renderHotspotMarkers();
       })
       .catch(err => {
