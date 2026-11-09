@@ -1,0 +1,17 @@
+$kind: http-request
+name: http://localhost:8080/api/v1/regions
+description: ""
+url: http://localhost:8080/api/v1/alerts
+method: GET
+body:
+  type: json
+  content: "{\r
+
+    \  \"severityLevel\": \"CRITICAL_FIRE_EVENT\",\r
+
+    \  \"message\": \"Foc activ detectat prin monitorizare manuală.\",\r
+
+    \  \"timestamp\": \"2026-11-03T09:30:00\"\r
+
+    }"
+order: 1793690935718

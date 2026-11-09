@@ -21,7 +21,6 @@ public class WildfireController {
 
     private final RegionRepository regionRepository;
     private final RiskAssessmentRepository riskAssessmentRepository;
-    private final FireAlertRepository fireAlertRepository;
     private final UserRepository userRepository;
     private final UserSubscriptionRepository subscriptionRepository;
     private final GridPointRepository gridPointRepository;
@@ -34,7 +33,6 @@ public class WildfireController {
                               ApiLogRepository apiLogRepository, WildfireService wildfireService) {
         this.regionRepository = regionRepository;
         this.riskAssessmentRepository = riskAssessmentRepository;
-        this.fireAlertRepository = fireAlertRepository;
         this.userRepository = userRepository;
         this.subscriptionRepository = subscriptionRepository;
         this.gridPointRepository = gridPointRepository;
@@ -46,25 +44,31 @@ public class WildfireController {
     @GetMapping("/users") public List<User> getUsers() { return userRepository.findAll(); }
     @PostMapping("/users") public User createUser(@RequestBody User u) { return userRepository.save(u); }
     @DeleteMapping("/users/{id}") public void deleteUser(@PathVariable Long id) { userRepository.deleteById(id); }
-
+    @PutMapping("/users/{id}")
+    public User updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
+        updatedUser.setUserId(id);
+        return userRepository.save(updatedUser);
+    }
     @GetMapping("/regions") public List<Region> getRegions() { return regionRepository.findAll(); }
     @PostMapping("/regions")
     public Region createRegion(@RequestBody Region r) {
-        // fortam salvarea datelor
         r.setCountry("Custom Added");
         return regionRepository.save(r);
     }
     @DeleteMapping("/regions/{id}") public void deleteRegion(@PathVariable Long id) { regionRepository.deleteById(id); }
-
-    @GetMapping("/assessments") public List<RiskAssessment> getAllAssessments() { return riskAssessmentRepository.findAll(); }
-
-    @GetMapping("/alerts") public List<FireAlert> getAlerts() { return fireAlertRepository.findAll(); }
-    @PostMapping("/alerts") public FireAlert createAlert(@RequestBody FireAlert a) { return fireAlertRepository.save(a); }
-    @DeleteMapping("/alerts/{id}") public void deleteAlert(@PathVariable Long id) { fireAlertRepository.deleteById(id); }
-
+    @PutMapping("/regions/{id}")
+    public Region updateRegion(@PathVariable Long id, @RequestBody Region updatedRegion) {
+        updatedRegion.setRegionId(id);
+        return regionRepository.save(updatedRegion);
+    }
     @GetMapping("/subscriptions") public List<UserSubscription> getSubs() { return subscriptionRepository.findAll(); }
     @PostMapping("/subscriptions") public UserSubscription createSub(@RequestBody UserSubscription s) { return subscriptionRepository.save(s); }
     @DeleteMapping("/subscriptions/{id}") public void deleteSub(@PathVariable Long id) { subscriptionRepository.deleteById(id); }
+    @PutMapping("/subscriptions/{id}")
+    public UserSubscription updateSubscription(@PathVariable Long id, @RequestBody UserSubscription updatedSub) {
+        updatedSub.setSubscriptionId(id);
+        return subscriptionRepository.save(updatedSub);
+    }
 
     // operatii complexe
     @GetMapping("/regions/{id}/grid")
@@ -76,24 +80,46 @@ public class WildfireController {
         return latest.map(assessment -> ResponseEntity.ok(gridPointRepository.findByAssessment_AssessmentId(assessment.getAssessmentId())))
                 .orElseGet(() -> ResponseEntity.ok(Collections.emptyList()));
     }
-
     @GetMapping("/assessments/critical")
-    public List<RiskAssessment> getCriticalAssessments() {
-        return riskAssessmentRepository.findAll().stream()
-                .filter(a -> a.getRiskScore() != null && a.getRiskScore() >= 68.0).toList();
+    public List<Map<String, Object>> getCriticalAssessments() {
+        return latestAssessmentsInRange(68.0, 100.0);
     }
-
-    @GetMapping("/notifications/pending")
-    public List<User> getUsersNeedingNotifications() {
-        return userRepository.findUsersToNotifyForSeverity("CRITICAL_FIRE_EVENT");
+    // risc ridicat: ultimul scor al fiecarei regiuni in [50, 68)
+    @GetMapping("/assessments/high-risk")
+    public List<Map<String, Object>> getHighRiskAssessments() {
+        return latestAssessmentsInRange(50.0, 68.0);
     }
+    private List<Map<String, Object>> latestAssessmentsInRange(double min, double max) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (RiskAssessment a : riskAssessmentRepository.findLatestInRange(min, max)) {
+            Region r = a.getRegion();
+            if (r == null || !seen.add(r.getRegionId())) continue; // o singura intrare pe regiune
 
-    @GetMapping("/logs/performance")
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("assessmentId", a.getAssessmentId());
+            row.put("regionId", r.getRegionId());
+            row.put("regionName", r.getRegionName());
+            row.put("country", r.getCountry());
+            row.put("centerLatitude", r.getCenterLatitude());
+            row.put("centerLongitude", r.getCenterLongitude());
+            row.put("riskScore", a.getRiskScore());
+            row.put("assessedAt", String.valueOf(a.getAssessedAt()));
+            out.add(row);
+        }
+        return out;
+    }
+    @GetMapping("/regions/stats/by-country")
+    public ResponseEntity<List<Object[]>> getStatsByCountry() {
+        List<Object[]> stats = regionRepository.countRegionsByCountry();
+        return ResponseEntity.ok(stats);
+    }
+    @GetMapping("/logs/performance") // query
     public List<Object[]> getApiPerformanceStats() {
         return apiLogRepository.findAverageResponseTimeByStatus();
     }
 
-    @PostMapping("/sync/trigger")
+    @PostMapping("/sync/trigger") //procesare asinrona pe baza de multi-threading
     public ResponseEntity<String> triggerManualSync() {
         new Thread(() -> {
             try {

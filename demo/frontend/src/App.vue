@@ -47,6 +47,26 @@
           💾 Save to Regions DB
         </button>
 
+        <!-- PANOU REGIUNI SALVATE MANUAL DE UTILIZATOR -->
+        <div class="divider" style="margin: 15px 0;"></div>
+        <h3 class="panel-title">💾 My Saved Regions</h3>
+        <div style="max-height: 160px; overflow-y: auto; margin-bottom: 10px; padding-right: 2px;">
+          <div v-for="reg in userSavedRegions" :key="reg.regionId"
+               style="background: #161528; padding: 6px 8px; margin-bottom: 6px; border-radius: 5px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #00d2ff;">
+            <div style="overflow: hidden; max-width: 140px;">
+              <b style="color: #ffffff; display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" :title="reg.regionName">
+                {{ reg.regionName }}
+              </b>
+              <span style="font-size: 10px; color: #8b949e;">Lat: {{ reg.centerLatitude ? reg.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ reg.centerLongitude ? reg.centerLongitude.toFixed(2) : 'N/A' }}</span>
+            </div>
+            <div style="display: flex; gap: 4px; flex-shrink: 0;">
+              <button @click="editUserRegion(reg)" style="background: #388bfd; border: none; color: white; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">Edit</button>
+              <button @click="deleteUserRegion(reg.regionId)" style="background: #f85149; border: none; color: white; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 10px;">Del</button>
+            </div>
+          </div>
+          <p v-if="!userSavedRegions || userSavedRegions.length === 0" style="font-size: 11px; color: #8b949e; text-align: center; margin: 10px 0;">No custom regions saved yet.</p>
+        </div>
+
         <div class="divider"></div>
 
         <button class="action-btn sync-btn" @click="triggerBackendSync">
@@ -65,6 +85,45 @@
         <p class="risk-scale-text" style="color: #ffcc00;">🟨 30 - 50%: Moderate Risk</p>
         <p class="risk-scale-text" style="color: #ff6600;">🟧 50 - 68%: High Risk Warning</p>
         <p class="risk-scale-text" style="color: #ff0033;">🟥 68 - 100%: Critical / Fire</p>
+
+        <!-- Panou: API Performance Diagnostics -->
+        <div class="divider" style="margin: 15px 0;"></div>
+        <div class="performance-metrics-panel" style="background: #18181b; color: #f4f4f5; border-radius: 8px; border: 1px solid #27272a; padding: 10px;">
+          <h4 style="margin-bottom: 8px; font-size: 14px; color: #38bdf8;">📊 API Performance Diagnostics</h4>
+          <div v-if="!apiPerformance || apiPerformance.length === 0" style="font-size: 12px; color: #a1a1aa;">
+            Statistics are loading, or there are no logs...
+          </div>
+          <ul v-else style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;">
+            <li v-for="(stat, index) in apiPerformance" :key="index" style="background: #27272a; padding: 6px 10px; border-radius: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <span>Status: <strong style="color: #4ade80;">{{ stat[0] }}</strong></span>
+              <span>Medie: <strong style="color: #facc15;">{{ Math.round(stat[1]) }} ms</strong></span>
+            </li>
+          </ul>
+        </div>
+        <!-- Panou: Statistici pe Țări (GROUP BY country) -->
+        <div class="divider" style="margin: 15px 0;"></div>
+        <div class="performance-metrics-panel" style="background: #18181b; color: #f4f4f5; border-radius: 8px; border: 1px solid #27272a; padding: 10px;">
+          <h4 style="margin-bottom: 8px; font-size: 14px; color: #00d2ff;">🏳️ Regions by Country</h4>
+
+          <div v-if="!countryStats || countryStats.length === 0" style="font-size: 12px; color: #a1a1aa;">
+            No country stats available...
+          </div>
+
+          <table v-else style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+            <tr style="border-bottom: 1px solid #3f3f46; text-align: left; color: #a1a1aa;">
+              <th style="padding: 4px;">Country</th>
+              <th style="padding: 4px; text-align: right;">Count</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="(row, index) in countryStats" :key="index" style="border-bottom: 1px solid #27272a;">
+              <td style="padding: 6px 4px; color: #ffffff;">{{ row[0] || 'Unspecified' }}</td>
+              <td style="padding: 6px 4px; text-align: right;"><strong style="color: #4ade80;">{{ row[1] }}</strong></td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
       </aside>
 
       <!-- MAIN MAP AREA -->
@@ -177,7 +236,11 @@
           <div v-for="fire in confirmedFires" :key="fire.regionId" class="fire-confirmed-card" style="cursor: pointer;" @click="map.flyTo([fire.centerLatitude, fire.centerLongitude], 8)">
             <h4>🔥 {{ fire.regionName }}</h4>
             <p>Status: Active hotspot detected by satellites.</p>
-            <p>Risk: <b style="color: #ff0033;">{{ getRegionRisk(fire) }}%</b> | Lat: {{ fire.centerLatitude != null ? fire.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ fire.centerLongitude != null ? fire.centerLongitude.toFixed(2) : 'N/A' }}</p>
+            <p>
+              Risk: <b style="color: #ff0033;">{{ getRegionRisk(fire) }}%</b> |
+              Lat: {{ fire.centerLatitude != null ? fire.centerLatitude.toFixed(2) : 'N/A' }} |
+              Lon: {{ fire.centerLongitude != null ? fire.centerLongitude.toFixed(2) : 'N/A' }}
+            </p>
           </div>
           <p v-if="confirmedFires.length === 0" style="color: #00ff66;">✅ No active fire incidents in this area.</p>
         </div>
@@ -189,7 +252,11 @@
           <div v-for="warn in warningZones" :key="warn.regionId" class="fire-warning-card" style="cursor: pointer;" @click="map.flyTo([warn.centerLatitude, warn.centerLongitude], 8)">
             <h4 style="color: #ffcc00; margin-bottom: 5px;">⚠️ {{ warn.regionName }}</h4>
             <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">Status: High risk of ignition.</p>
-            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">Risk: <b style="color: #ffcc00;">{{ getRegionRisk(warn) }}%</b> | Lat: {{ warn.centerLatitude != null ? warn.centerLatitude.toFixed(2) : 'N/A' }} | Lon: {{ warn.centerLongitude != null ? warn.centerLongitude.toFixed(2) : 'N/A' }}</p>
+            <p style="font-size: 13px; color: #d0d7de; margin: 2px 0;">
+              Risk: <b style="color: #ffcc00;">{{ getRegionRisk(warn) }}%</b> |
+              Lat: {{ warn.centerLatitude != null ? warn.centerLatitude.toFixed(2) : 'N/A' }} |
+              Lon: {{ warn.centerLongitude != null ? warn.centerLongitude.toFixed(2) : 'N/A' }}
+            </p>
           </div>
           <p v-if="warningZones.length === 0" style="color: #8b949e;">No secondary risk advisory zones in this area.</p>
         </div>
@@ -237,37 +304,72 @@
 
         <div v-else style="overflow-y: auto; padding-right: 10px;">
           <h3 style="color: #00ff66;">Hello, {{ currentUser.fullName || 'User' }}!</h3>
-          <p style="font-size: 13px; color: #8b949e; margin-bottom: 15px;">Email: {{ currentUser.email }}</p>
+          <p style="font-size: 13px; color: #8b949e; margin-bottom: 10px;">Email: {{ currentUser.email }}</p>
 
-          <!-- LISTA DE ABONAMENTE -->
-          <div class="divider" style="margin: 10px 0;"></div>
-          <h3 style="margin-bottom: 10px; color: #00d2ff; font-size: 1.1rem;">📋 My Subscriptions</h3>
-          <div v-if="userSubscriptions.length === 0">
-            <p style="font-size: 12px; color: #8b949e; margin-bottom: 15px;">You don't have any active subscriptions.</p>
+          <!-- BUTOANE EDIT / DELETE UTILIZATOR -->
+          <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+            <button class="action-btn" style="background-color: #1f6feb; border: none; margin: 0; padding: 6px 12px; font-size: 12px;" @click="editUser(currentUser)">
+              ✏️ Edit Profile
+            </button>
+            <button class="action-btn" style="background-color: #da3633; border: none; margin: 0; padding: 6px 12px; font-size: 12px;" @click="deleteUser(currentUser.userId)">
+              🗑️ Delete Account
+            </button>
           </div>
-          <ul v-else style="list-style: none; padding: 0; max-height: 120px; overflow-y: auto; margin-bottom: 15px;">
-            <li v-for="sub in userSubscriptions" :key="sub.subscriptionId" style="background: #1e2636; padding: 8px; margin-bottom: 5px; border-radius: 5px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #2ea043;">
-              <span>📍 {{ sub.regionNameKeyword || (sub.region ? sub.region.regionName : 'Unknown Region') }}</span>
-              <span style="color: #00ff66; font-size: 11px;" v-if="sub.notifyByEmail">📧 Email Alert</span>
+
+          <!-- 1. MY SUBSCRIPTIONS -->
+          <div class="divider" style="margin: 10px 0;"></div>
+          <h3 style="color: #00d2ff; font-size: 1.1rem; margin-bottom: 8px;">📋 My Subscriptions</h3>
+
+          <input
+              v-model="subSearchQuery"
+              placeholder="🔍 Search subscriptions..."
+              class="custom-input"
+              style="margin-bottom: 10px; padding: 6px 10px; font-size: 12px;"
+          />
+
+          <div v-if="!filteredSubscriptions || filteredSubscriptions.length === 0">
+            <p style="font-size: 12px; color: #8b949e; margin-bottom: 15px;">No matching subscriptions found.</p>
+          </div>
+          <ul v-else style="list-style: none; padding: 0; max-height: 150px; overflow-y: auto; margin-bottom: 15px;">
+            <li v-for="sub in filteredSubscriptions" :key="sub.subscriptionId" style="background: #1e2636; padding: 8px; margin-bottom: 6px; border-radius: 5px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #2ea043;">
+              <div>
+                <span style="font-weight: bold; color: #ffffff;">📍 {{ sub.regionNameKeyword || (sub.region ? sub.region.regionName : 'Subscription #' + sub.subscriptionId) }}</span>
+                <span style="display: block; color: #00ff66; font-size: 11px;" v-if="sub.notifyByEmail">📧 Email Alert Active</span>
+                <span style="display: block; color: #ff6666; font-size: 11px;" v-else>🔕 Email Alert Disabled</span>
+              </div>
+              <div style="display: flex; gap: 5px;">
+                <button @click="editSubscription(sub)" style="background: #388bfd; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Edit</button>
+                <button @click="deleteSubscription(sub.subscriptionId)" style="background: #f85149; border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Del</button>
+              </div>
             </li>
           </ul>
 
+          <!-- 2. ADD NEW ALERT -->
           <div class="divider" style="margin: 10px 0;"></div>
-          <h3 style="margin-bottom: 10px; font-size: 1.1rem;">🔔 Add New Alert</h3>
+          <h3 style="margin-bottom: 10px; font-size: 1.1rem;">🔔 Add New Subscription</h3>
 
           <div style="margin-bottom: 10px;">
-            <label style="font-size: 12px; color: #8b949e;">Select a region from the live hotspots:</label>
+            <label style="font-size: 12px; color: #8b949e;">Select a region from active hotspots or saved regions:</label>
             <select v-model="subForm.selectedRegionId" class="custom-select" @change="subForm.customRegionName = ''" style="padding: 8px; margin-top: 5px;">
-              <option value="" disabled selected>-- Select from active hotspots --</option>
-              <option v-for="h in filteredHotspots" :key="h.regionId" :value="h.regionId">
-                {{ h.regionName }}
-              </option>
+              <option value="" disabled selected>-- Select a region --</option>
+
+              <optgroup label="🔥 Live Hotspots" v-if="filteredHotspots && filteredHotspots.length > 0">
+                <option v-for="h in filteredHotspots" :key="'hotspot-' + h.regionId" :value="h.regionId">
+                  {{ h.regionName }}
+                </option>
+              </optgroup>
+
+              <optgroup label="💾 My Saved Regions" v-if="userSavedRegions && userSavedRegions.length > 0">
+                <option v-for="reg in userSavedRegions" :key="'saved-' + reg.regionId" :value="reg.regionId">
+                  {{ reg.regionName }}
+                </option>
+              </optgroup>
             </select>
           </div>
 
           <div style="margin-bottom: 15px;">
             <label style="font-size: 12px; color: #8b949e;">Or enter a custom region/country name:</label>
-            <input v-model="subForm.customRegionName" placeholder="ex: Romania, California..." class="custom-input" @input="subForm.selectedRegionId = ''" style="padding: 8px; margin-top: 5px; margin-bottom: 5px;" />
+            <input v-model="subForm.customRegionName" placeholder="ex: Romania, California, Ungaria..." class="custom-input" style="padding: 8px; margin-top: 5px; margin-bottom: 5px;" />
           </div>
 
           <div style="display: flex; align-items: center; margin-bottom: 10px;">
@@ -290,29 +392,63 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onBeforeUnmount, ref, shallowRef, computed, watch } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
+const API = 'http://localhost:8080/api/v1';
 
-const map = ref(null);
-const currentLayer = ref(null);
+const map = shallowRef(null);
+const currentLayer = shallowRef(null);
+const gridLayers = shallowRef(L.layerGroup());
+const markerLayers = shallowRef(L.layerGroup());
+const windLayers = shallowRef(L.layerGroup());
 const mapStyle = ref('satellite');
 const selectedContinent = ref('all');
-const gridLayers = ref(L.layerGroup());
-const markerLayers = ref(L.layerGroup());
-const windLayers = ref(L.layerGroup());
-
 const hotspots = ref([]);
+const userSavedRegions = ref([]);
+const countryStats = ref([]);
+const apiPerformance = ref([]);
+
 const latestAlert = ref(null);
 const selectedRegion = ref(null);
 const selectedWeather = ref(null);
 const selectedRisk = ref(0);
+const aiAnalysis = ref(null);
+const loadingAi = ref(false);
 
+// coordonate manuale
 const manualRegionName = ref('');
 const manualLat = ref(null);
 const manualLon = ref(null);
+
+// cont / abonamente
+const showSettingsModal = ref(false);
+const authMode = ref('login');
+const loginEmail = ref('');
+const currentUser = ref(null);
+const userSubscriptions = ref([]);
+const subSearchQuery = ref('');
+
+const userForm = ref({
+  fullName: '',
+  email: '',
+  passwordHash: '',
+  userRole: 'USER'
+});
+
+const subForm = ref({
+  selectedRegionId: '',
+  customRegionName: '',
+  notifyByEmail: true
+});
+
+// reset / sincronizare
+const mapCleared = ref(false);   // true dupa Reset: alertele live nu mai repopuleaza harta
+let syncTimers = [];             // refresh-urile programate dupa "Search Fires (NASA)"
+let alertTimer = null;
+let stompClient = null;
 
 const continentConfigs = {
   all: { center: [20.0, 0.0], zoom: 2, filter: () => true },
@@ -347,7 +483,6 @@ const continentConfigs = {
     filter: (lat, lon) => lat >= -48 && lat <= -10 && lon >= 110 && lon <= 180
   }
 };
-
 function getRegionRisk(r) {
   if (r.riskScore != null && !isNaN(Number(r.riskScore)) && Number(r.riskScore) > 0) {
     return Number(r.riskScore);
@@ -355,18 +490,17 @@ function getRegionRisk(r) {
   if (r.calculatedRisk != null && !isNaN(Number(r.calculatedRisk)) && Number(r.calculatedRisk) > 0) {
     return Number(r.calculatedRisk);
   }
+  // pt risk
   const seed = (r.regionId || 5) * 13;
-  return 45 + (seed % 30); // Generează valori echilibrate între 45% și 75% pentru ambele praguri
+  return 45 + (seed % 30);
 }
 
 const filteredHotspots = computed(() => {
   const cfg = continentConfigs[selectedContinent.value] || continentConfigs.all;
   return hotspots.value.filter(h => {
     if (h.centerLatitude == null || h.centerLongitude == null) return false;
-
-    // Excludem complet regiunile adăugate manual sau numite "ceva"
     if (h.regionName && h.regionName.trim().toLowerCase() === 'ceva') return false;
-    if (h.country && h.country.toLowerCase().includes('custom')) return false;
+    if (h.country === "Custom Added") return false;
 
     const lat = Number(h.centerLatitude);
     const lon = Number(h.centerLongitude);
@@ -385,43 +519,253 @@ const warningZones = computed(() => {
   });
 });
 
-const aiAnalysis = ref(null);
-const loadingAi = ref(false);
-
-const showSettingsModal = ref(false);
-const authMode = ref('login');
-const loginEmail = ref('');
-const currentUser = ref(null);
-const userSubscriptions = ref([]);
-
-const userForm = ref({
-  fullName: '',
-  email: '',
-  passwordHash: '',
-  userRole: 'USER'
+const filteredSubscriptions = computed(() => {
+  if (!subSearchQuery.value) return userSubscriptions.value;
+  const query = subSearchQuery.value.toLowerCase();
+  return userSubscriptions.value.filter(sub => {
+    const regName = sub.regionNameKeyword || (sub.region ? sub.region.regionName : '');
+    return String(sub.subscriptionId).includes(query) || regName.toLowerCase().includes(query);
+  });
 });
 
-const subForm = ref({
-  selectedRegionId: '',
-  customRegionName: '',
-  notifyByEmail: true
-});
+// Markerele se redeseneaza automat cand se schimba hotspots sau continentul selectat
+watch(filteredHotspots, () => renderHotspotMarkers());
+async function fetchHotspots() {
+  try {
+    const res = await axios.get(`${API}/regions`);
+    hotspots.value = res.data;
+  } catch (err) {
+    console.error("Error fetching hotspots:", err);
+  }
+}
+async function fetchCountryStats() {
+  try {
+    const res = await axios.get(`${API}/regions/stats/by-country`);
+    countryStats.value = res.data;
+  } catch (err) {
+    console.error("Eroare la preluarea statisticilor pe tari:", err);
+  }
+}
+async function fetchApiPerformance() {
+  try {
+    const res = await axios.get(`${API}/logs/performance`);
+    apiPerformance.value = res.data;
+  } catch (err) {
+    console.error("Eroare la preluarea performantei API:", err);
+  }
+}
+function fetchUserSavedRegions() {
+  axios.get(`${API}/regions`)
+      .then(res => {
+        userSavedRegions.value = res.data.filter(r => r.country === "Custom Added");
+      })
+      .catch(err => console.error("Error fetching custom regions:", err));
+}
+function fetchUserSubscriptions() {
+  if (!currentUser.value) return;
+  const uid = currentUser.value.userId || currentUser.value.user_id || currentUser.value.id;
 
-onMounted(() => {
-  const savedUser = localStorage.getItem('wildfire_user');
-  if (savedUser) {
-    try {
-      currentUser.value = JSON.parse(savedUser);
-      fetchUserSubscriptions();
-    } catch (e) {
-      localStorage.removeItem('wildfire_user');
+  axios.get(`${API}/subscriptions`)
+      .then(res => {
+        userSubscriptions.value = res.data.filter(sub => {
+          const subUid = sub.user?.userId || sub.user?.user_id || sub.user?.id;
+          return subUid === uid;
+        });
+      })
+      .catch(err => console.error("Eroare la aducerea abonamentelor:", err));
+}
+function initMap() {
+  map.value = L.map('map', { zoomControl: true, minZoom: 2 }).setView([20.0, 0.0], 2);
+  setTimeout(() => { map.value.invalidateSize(); }, 500);
+
+  gridLayers.value.addTo(map.value);
+  markerLayers.value.addTo(map.value);
+  windLayers.value.addTo(map.value);
+  updateMapStyle();
+
+  map.value.on('moveend', drawWindGrid);
+  drawWindGrid();
+
+  map.value.on('click', (e) => {
+    generateDynamicGrid(e.latlng.lat, e.latlng.lng);
+  });
+}
+function updateMapStyle() {
+  if (currentLayer.value) map.value.removeLayer(currentLayer.value);
+  if (mapStyle.value === 'satellite') {
+    currentLayer.value = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map.value);
+  } else {
+    currentLayer.value = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }).addTo(map.value);
+  }
+}
+function handleContinentChange() {
+  const cfg = continentConfigs[selectedContinent.value] || continentConfigs.all;
+  if (map.value) {
+    map.value.flyTo(cfg.center, cfg.zoom, { animate: true, duration: 1.5 });
+  }
+}
+function renderHotspotMarkers() {
+  markerLayers.value.clearLayers();
+  filteredHotspots.value.forEach(region => {
+    const fireIcon = L.divIcon({
+      html: `<div style="font-size: 28px; text-shadow: 0 0 8px red; cursor: pointer;">🔥</div>`,
+      className: 'custom-icon',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    const marker = L.marker([region.centerLatitude, region.centerLongitude], { icon: fireIcon })
+        .addTo(markerLayers.value)
+        .bindTooltip(region.regionName || 'Incident', { permanent: false, direction: 'top' });
+    marker.on('click', () => {
+      generateDynamicGrid(region.centerLatitude, region.centerLongitude, region.regionName);
+    });
+  });
+}
+function drawWindGrid() {
+  windLayers.value.clearLayers();
+  const bounds = map.value.getBounds();
+  const zoom = map.value.getZoom();
+  if (zoom < 3) return;
+
+  const latStep = (bounds.getNorth() - bounds.getSouth()) / 12;
+  const lonStep = (bounds.getEast() - bounds.getWest()) / 16;
+
+  for (let lat = bounds.getSouth() + latStep / 2; lat < bounds.getNorth(); lat += latStep) {
+    for (let lon = bounds.getWest() + lonStep / 2; lon < bounds.getEast(); lon += lonStep) {
+      const speed = (Math.sin(lat - 5) * Math.cos(lon - 5) + 1) * 20 + 10;
+      let dir = (Math.sin(lon - 2) + Math.cos(lat - 2)) * 180 + 180;
+      dir = ((dir % 360) + 360) % 360;
+
+      let color = "#4ad9e0";
+      if (speed > 25) color = "#4ad966";
+      if (speed > 35) color = "#d9d24a";
+      if (speed > 45) color = "#e0473c";
+
+      const arrowHtml = `<div style="transform: rotate(${dir}deg); color: ${color}; font-size: 20px; font-weight: bold; text-shadow: 0px 0px 3px black; cursor: pointer;">↑</div>`;
+      const icon = L.divIcon({ html: arrowHtml, className: '', iconSize: [20, 20] });
+
+      const marker = L.marker([lat, lon], { icon: icon, interactive: true }).addTo(windLayers.value);
+      marker.bindTooltip(`🌬️ Wind: ${speed.toFixed(1)} km/h<br>🧭 Dir: ${dir.toFixed(0)}°`, {
+        direction: 'top', offset: [0, -10], opacity: 0.9, className: 'wind-hover-tooltip'
+      });
+      marker.on('click', () => { generateDynamicGrid(lat, lon); });
     }
   }
-  initMap();
-  setupWebSockets();
-  fetchHotspots();
-});
+}
+function generateDynamicGrid(lat, lon, name) {
+  axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m`)
+      .then(res => {
+        const current = res.data.current;
+        selectedRegion.value = {
+          regionName: name || manualRegionName.value || "Manually Scanned Point",
+          centerLatitude: lat,
+          centerLongitude: lon
+        };
+        selectedWeather.value = {
+          temp: current.temperature_2m,
+          hum: current.relative_humidity_2m,
+          wind: current.wind_speed_10m,
+          dir: current.wind_direction_10m
+        };
+        aiAnalysis.value = null; // auditul vechi nu mai e valabil pentru punctul nou
 
+        const dryness = 0.65;
+        const baseRisk = (current.wind_speed_10m * 0.40) + (current.temperature_2m * 0.85) + (dryness * 35.0) + ((100 - current.relative_humidity_2m) * 0.30) - 10;
+
+        gridLayers.value.clearLayers();
+        let maxRisk = 0;
+        const step = 0.05;
+
+        for (let i = -2; i <= 2; i++) {
+          for (let j = -2; j <= 2; j++) {
+            const pLat = lat + (i * step);
+            const pLon = lon + (j * step);
+            const localRisk = Math.min(Math.max(baseRisk + (Math.random() * 6 - 3), 0), 100);
+            if (localRisk > maxRisk) maxRisk = localRisk;
+
+            let color = '#ffcc00';
+            if (localRisk >= 68) color = '#ff0033';
+            if (localRisk < 40) color = '#00ff66';
+
+            const bounds = [[pLat - step / 2, pLon - step / 2], [pLat + step / 2, pLon + step / 2]];
+            const rect = L.rectangle(bounds, { color: '#ffffff', weight: 1, fillColor: color, fillOpacity: 0.55 });
+            rect.bindPopup(`<div class="popup-content"><b>Local Cell Data:</b><br>Risk: <b style="color:${color}">${localRisk.toFixed(1)}%</b><br>Temp: ${current.temperature_2m}°C<br>Wind: ${current.wind_speed_10m} km/h<br>Humidity: ${current.relative_humidity_2m}%</div>`);
+            gridLayers.value.addLayer(rect);
+          }
+        }
+        selectedRisk.value = Number(maxRisk.toFixed(1));
+        map.value.flyTo([lat, lon], 9, { animate: true, duration: 1.0 });
+      })
+      .catch(() => alert("Error retrieving weather data for this location."));
+}
+function resetMap() {
+  syncTimers.forEach(clearTimeout);
+  syncTimers = [];
+  mapCleared.value = true; // alertele live nu mai repopuleaza harta pana la un nou "Search Fires
+  hotspots.value = []; //sterge cam tot de pe harta
+  markerLayers.value.clearLayers();
+  gridLayers.value.clearLayers();
+  countryStats.value = [];
+  apiPerformance.value = [];
+
+  selectedRegion.value = null; //pt panoul din dreapta
+  selectedWeather.value = null;
+  selectedRisk.value = 0;
+  aiAnalysis.value = null;
+  loadingAi.value = false;
+
+  clearTimeout(alertTimer); //pt alertele live
+  latestAlert.value = null;
+
+  selectedContinent.value = 'all'; //reseteaza continentul si coordonatele manuale
+  manualRegionName.value = '';
+  manualLat.value = null;
+  manualLon.value = null;
+
+  if (map.value) { //revine la vederea normala a codului
+    map.value.closePopup();
+    map.value.flyTo([20.0, 0.0], 2, { animate: true, duration: 1.0 });
+  }
+}
+
+function refreshBackendData() {
+  fetchHotspots();
+  fetchCountryStats();
+  fetchApiPerformance();
+}
+
+function triggerBackendSync() {
+  mapCleared.value = false;
+  syncTimers.forEach(clearTimeout);
+  syncTimers = [];
+
+  axios.post(`${API}/sync/trigger`)
+      .then(() => {
+        alert("Synchronization started in the background. Fires will appear on the map as they are processed.");
+        // backend-ul raspunde imediat si lucreaza in alt thread, deci reincarcam datele de cateva ori
+        [3000, 10000, 25000].forEach(ms => {
+          syncTimers.push(setTimeout(refreshBackendData, ms));
+        });
+      })
+      .catch(() => {
+        alert("❌ Error communicating with the backend server! Check the IntelliJ console.");
+      });
+}
+function setupWebSockets() {
+  stompClient = new Client({
+    brokerURL: 'ws://localhost:8080/ws-wildfire',
+    reconnectDelay: 5000,
+    onConnect: () => {
+      stompClient.subscribe('/topic/alerts', (message) => {
+        latestAlert.value = JSON.parse(message.body);
+        clearTimeout(alertTimer);
+        alertTimer = setTimeout(() => { latestAlert.value = null; }, 8000);
+        if (!mapCleared.value) fetchHotspots();
+      });
+    }
+  });
+  stompClient.activate();
+}
 function getUserLocation() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
@@ -431,60 +775,28 @@ function getUserLocation() {
           if (!manualRegionName.value) {
             manualRegionName.value = "My Current Location";
           }
-          alert(`✅ Locație detectată cu succes!\nLat: ${manualLat.value}\nLon: ${manualLon.value}`);
+          alert(`✅ Locatie detectata cu succes!\nLat: ${manualLat.value}\nLon: ${manualLon.value}`);
         },
         (error) => {
-          console.error("Eroare locație:", error);
-          alert("❌ Nu am putut prelua locația. Verifică permisiunile browserului.");
+          console.error("Eroare locatie:", error);
+          alert("❌ Nu am putut prelua locatia. Verifica permisiunile browserului.");
         }
     );
   } else {
-    alert("Browserul tău nu suportă geolocalizarea.");
+    alert("Browserul tau nu suporta geolocalizarea.");
   }
-}
-
-function handleContinentChange() {
-  const cfg = continentConfigs[selectedContinent.value] || continentConfigs.all;
-  if (map.value) {
-    map.value.flyTo(cfg.center, cfg.zoom, { animate: true, duration: 1.5 });
-  }
-  renderHotspotMarkers();
-}
-
-function renderHotspotMarkers() {
-  markerLayers.value.clearLayers();
-  filteredHotspots.value.forEach(region => {
-    if (region.centerLatitude != null && region.centerLongitude != null) {
-      const fireIcon = L.divIcon({
-        html: `<div style="font-size: 28px; text-shadow: 0 0 8px red; cursor: pointer;">🔥</div>`,
-        className: 'custom-icon',
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-      const marker = L.marker([region.centerLatitude, region.centerLongitude], { icon: fireIcon })
-          .addTo(markerLayers.value)
-          .bindTooltip(region.regionName || 'Incident', { permanent: false, direction: 'top' });
-      marker.on('click', () => {
-        generateDynamicGrid(region.centerLatitude, region.centerLongitude);
-      });
-    }
-  });
 }
 
 function scanManualCoordinates() {
-  if (!manualLat.value || !manualLon.value) {
+  if (manualLat.value == null || manualLat.value === '' || manualLon.value == null || manualLon.value === '') {
     alert("Please enter both Latitude and Longitude!");
     return;
   }
-  const lat = parseFloat(manualLat.value);
-  const lon = parseFloat(manualLon.value);
-
-  generateDynamicGrid(lat, lon);
-  map.value.flyTo([lat, lon], 10, { animate: true, duration: 1.5 });
+  // generateDynamicGrid face singur flyTo
+  generateDynamicGrid(parseFloat(manualLat.value), parseFloat(manualLon.value), manualRegionName.value);
 }
-
 function saveManualRegion() {
-  if (!manualRegionName.value || !manualLat.value || !manualLon.value) {
+  if (!manualRegionName.value || manualLat.value == null || manualLon.value == null) {
     alert("Please fill in the Name, Latitude, and Longitude to save!");
     return;
   }
@@ -495,21 +807,48 @@ function saveManualRegion() {
     centerLongitude: parseFloat(manualLon.value),
     country: "Custom Added"
   };
-
-  axios.post('http://localhost:8080/api/v1/regions', payload)
+  axios.post(`${API}/regions`, payload)
       .then(res => {
         alert(`Region "${manualRegionName.value}" saved successfully!`);
+        userSavedRegions.value.push(res.data);
         manualRegionName.value = '';
         manualLat.value = null;
         manualLon.value = null;
-        fetchHotspots();
+        fetchCountryStats();
       })
       .catch(err => {
         console.error(err);
         alert("Error saving region to database.");
       });
 }
-
+function editUserRegion(region) {
+  const newName = prompt("Edit Region name:", region.regionName || "");
+  if (newName !== null && newName.trim() !== "") {
+    const updatedRegion = { ...region, regionName: newName };
+    axios.put(`${API}/regions/${region.regionId}`, updatedRegion)
+        .then(res => {
+          alert("Region updated successfully!");
+          const index = userSavedRegions.value.findIndex(r => r.regionId === region.regionId);
+          if (index !== -1) {
+            userSavedRegions.value[index] = res.data;
+          }
+        })
+        .catch(err => console.error("Error editing region:", err));
+  }
+}
+function deleteUserRegion(regionId) {
+  if (!confirm("Are you sure you want to delete this custom saved region?")) return;
+  axios.delete(`${API}/regions/${regionId}`)
+      .then(() => {
+        alert("Custom region deleted!");
+        userSavedRegions.value = userSavedRegions.value.filter(r => r.regionId !== regionId);
+        fetchCountryStats();
+      })
+      .catch(err => {
+        console.error("Error deleting custom region:", err);
+        alert("Could not delete the region (it may still be used by a subscription).");
+      });
+}
 function generateAiReport() {
   if (!selectedRegion.value || !selectedWeather.value) {
     alert("Please select a location on the map first!");
@@ -527,8 +866,7 @@ function generateAiReport() {
     dir: selectedWeather.value.dir,
     risk: parseFloat(selectedRisk.value)
   };
-
-  axios.post('http://localhost:8080/api/v1/ai/analyze', payload)
+  axios.post(`${API}/ai/analyze`, payload)
       .then(res => {
         aiAnalysis.value = res.data;
       })
@@ -540,31 +878,14 @@ function generateAiReport() {
         loadingAi.value = false;
       });
 }
-
-function fetchUserSubscriptions() {
-  if (!currentUser.value) return;
-  const uid = currentUser.value.userId || currentUser.value.user_id || currentUser.value.id;
-
-  axios.get('http://localhost:8080/api/v1/subscriptions')
-      .then(res => {
-        userSubscriptions.value = res.data.filter(sub => {
-          const subUid = sub.user?.userId || sub.user?.user_id || sub.user?.id;
-          return subUid === uid;
-        });
-      })
-      .catch(err => console.error("Eroare la aducerea abonamentelor:", err));
-}
-
 function loginUser() {
   if (!loginEmail.value) {
     alert("Please enter your email address!");
     return;
   }
-
-  axios.get('http://localhost:8080/api/v1/users')
+  axios.get(`${API}/users`)
       .then(res => {
-        const users = res.data;
-        const found = users.find(u => u.email.toLowerCase().trim() === loginEmail.value.toLowerCase().trim());
+        const found = res.data.find(u => u.email.toLowerCase().trim() === loginEmail.value.toLowerCase().trim());
 
         if (found) {
           currentUser.value = found;
@@ -580,21 +901,18 @@ function loginUser() {
         console.error(err);
       });
 }
-
 function createUser() {
-  if(!userForm.value.fullName || !userForm.value.email || !userForm.value.passwordHash) {
+  if (!userForm.value.fullName || !userForm.value.email || !userForm.value.passwordHash) {
     alert("Please fill in your name, email, and password!");
     return;
   }
-
   const payload = {
     fullName: userForm.value.fullName,
     email: userForm.value.email,
     passwordHash: userForm.value.passwordHash,
     userRole: userForm.value.userRole
   };
-
-  axios.post('http://localhost:8080/api/v1/users', payload)
+  axios.post(`${API}/users`, payload)
       .then(res => {
         currentUser.value = res.data;
         localStorage.setItem('wildfire_user', JSON.stringify(res.data));
@@ -606,38 +924,75 @@ function createUser() {
         console.error(err);
       });
 }
-
 function logoutUser() {
   currentUser.value = null;
   userSubscriptions.value = [];
   localStorage.removeItem('wildfire_user');
 }
+function editUser(user) {
+  const newName = prompt("Edit the user's name:", user.fullName || user.name || "");
+  if (newName === null) return;
+  const newEmail = prompt("Edit the user's email:", user.email || "");
+  if (newEmail === null) return;
 
+  const updatedUser = { ...user, fullName: newName, email: newEmail };
+  axios.put(`${API}/users/${user.userId || user.id}`, updatedUser)
+      .then(() => {
+        alert("User successfully updated!");
+        if (currentUser.value && currentUser.value.userId === user.userId) {
+          currentUser.value = { ...currentUser.value, fullName: newName, email: newEmail };
+          localStorage.setItem('wildfire_user', JSON.stringify(currentUser.value));
+        }
+      })
+      .catch(err => console.error("Error updating user:", err));
+}
+function deleteUser(userId) {
+  if (!confirm("Are you sure you want to delete this user?")) return;
+  axios.delete(`${API}/users/${userId}`)
+      .then(() => {
+        alert("User successfully deleted!");
+        // butonul "Delete Account" sterge utilizatorul curent
+        logoutUser();
+        showSettingsModal.value = false;
+      })
+      .catch(err => {
+        console.error("Error deleting user:", err);
+        alert("Could not delete the account (it may still have subscriptions).");
+      });
+}
 function createSubscription() {
-  if (!subForm.value.selectedRegionId && !subForm.value.customRegionName) {
+  if (!currentUser.value) {
+    alert("Please log in first!");
+    return;
+  }
+
+  const custom = subForm.value.customRegionName.trim();
+  if (!subForm.value.selectedRegionId && !custom) {
     alert("Please select a region from the list OR enter a region name manually!");
     return;
   }
 
   const idUtilizator = currentUser.value.userId || currentUser.value.user_id || currentUser.value.id;
+  // daca s-a scris un nume custom, are prioritate fata de selectul de regiuni
+  const regionId = custom ? null : subForm.value.selectedRegionId;
 
-  let targetRegionName = subForm.value.customRegionName;
-  if (subForm.value.selectedRegionId) {
-    const found = filteredHotspots.value.find(h => h.regionId === subForm.value.selectedRegionId);
+  let targetRegionName = custom;
+  if (regionId) {
+    // cauta in hotspot-uri SI in regiunile salvate manual
+    const all = [...filteredHotspots.value, ...userSavedRegions.value];
+    const found = all.find(r => r.regionId === regionId);
     if (found) targetRegionName = found.regionName;
   }
 
   const payload = {
-    user: {
-      userId: idUtilizator
-    },
-    region: subForm.value.selectedRegionId ? { regionId: subForm.value.selectedRegionId } : null,
+    user: { userId: idUtilizator },
+    region: regionId ? { regionId: regionId } : null,
     regionNameKeyword: targetRegionName,
     notifyByEmail: subForm.value.notifyByEmail
   };
 
-  axios.post('http://localhost:8080/api/v1/subscriptions', payload)
-      .then(res => {
+  axios.post(`${API}/subscriptions`, payload)
+      .then(() => {
         alert(`You have successfully subscribed to alerts for "${targetRegionName}"!`);
         subForm.value.selectedRegionId = '';
         subForm.value.customRegionName = '';
@@ -648,136 +1003,51 @@ function createSubscription() {
         console.error("Error details:", err.response?.data || err.message);
       });
 }
+function editSubscription(sub) {
+  const newNotifyState = confirm(`Change email notification status for subscription #${sub.subscriptionId}? (OK = Active, Cancel = Inactive)`);
 
-function initMap() {
-  map.value = L.map('map', { zoomControl: true, minZoom: 2 }).setView([20.0, 0.0], 2);
-  setTimeout(() => { map.value.invalidateSize(); }, 500);
-
-  gridLayers.value.addTo(map.value);
-  markerLayers.value.addTo(map.value);
-  windLayers.value.addTo(map.value);
-  updateMapStyle();
-
-  map.value.on('moveend', drawWindGrid);
-  drawWindGrid();
-
-  map.value.on('click', (e) => {
-    generateDynamicGrid(e.latlng.lat, e.latlng.lng);
-  });
+  const updatedSub = { ...sub, notifyByEmail: newNotifyState };
+  axios.put(`${API}/subscriptions/${sub.subscriptionId}`, updatedSub)
+      .then(() => {
+        alert("Subscription successfully updated!");
+        fetchUserSubscriptions();
+      })
+      .catch(err => console.error("Error editing the subscription:", err));
 }
-
-function updateMapStyle() {
-  if (currentLayer.value) map.value.removeLayer(currentLayer.value);
-  if (mapStyle.value === 'satellite') {
-    currentLayer.value = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(map.value);
-  } else {
-    currentLayer.value = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17 }).addTo(map.value);
-  }
+function deleteSubscription(subId) {
+  if (!confirm("Are you sure you want to cancel this subscription?")) return;
+  axios.delete(`${API}/subscriptions/${subId}`)
+      .then(() => {
+        alert("Subscription deleted!");
+        fetchUserSubscriptions();
+      })
+      .catch(err => console.error("Error deleting subscription", err));
 }
+onMounted(() => {
+  initMap();
+  fetchCountryStats();
+  fetchApiPerformance();
+  fetchUserSavedRegions();
+  fetchHotspots();
+  setupWebSockets();
 
-function drawWindGrid() {
-  windLayers.value.clearLayers();
-  const bounds = map.value.getBounds();
-  const zoom = map.value.getZoom();
-  if(zoom < 3) return;
-
-  const latStep = (bounds.getNorth() - bounds.getSouth()) / 12;
-  const lonStep = (bounds.getEast() - bounds.getWest()) / 16;
-
-  for (let lat = bounds.getSouth() + latStep/2; lat < bounds.getNorth(); lat += latStep) {
-    for (let lon = bounds.getWest() + lonStep/2; lon < bounds.getEast(); lon += lonStep) {
-      const speed = (Math.sin(lat - 5) * Math.cos(lon - 5) + 1) * 20 + 10;
-      let dir = (Math.sin(lon - 2) + Math.cos(lat - 2)) * 180 + 180;
-      dir = ((dir % 360) + 360) % 360;
-
-      let color = "#4ad9e0";
-      if(speed > 25) color = "#4ad966";
-      if(speed > 35) color = "#d9d24a";
-      if(speed > 45) color = "#e0473c";
-
-      const arrowHtml = `<div style="transform: rotate(${dir}deg); color: ${color}; font-size: 20px; font-weight: bold; text-shadow: 0px 0px 3px black; cursor: pointer;">↑</div>`;
-      const icon = L.divIcon({ html: arrowHtml, className: '', iconSize: [20, 20] });
-
-      const marker = L.marker([lat, lon], { icon: icon, interactive: true }).addTo(windLayers.value);
-      marker.bindTooltip(`🌬️ Wind: ${speed.toFixed(1)} km/h<br>🧭 Dir: ${dir.toFixed(0)}°`, {
-        direction: 'top', offset: [0, -10], opacity: 0.9, className: 'wind-hover-tooltip'
-      });
-      marker.on('click', () => { generateDynamicGrid(lat, lon); });
+  // reia utilizatorul logat dupa refresh
+  const saved = localStorage.getItem('wildfire_user');
+  if (saved) {
+    try {
+      currentUser.value = JSON.parse(saved);
+      fetchUserSubscriptions();
+    } catch {
+      localStorage.removeItem('wildfire_user');
     }
   }
-}
-
-function generateDynamicGrid(lat, lon) {
-  axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m`)
-      .then(res => {
-        const current = res.data.current;
-        selectedRegion.value = { regionName: manualRegionName.value || "Manually Scanned Point", centerLatitude: lat, centerLongitude: lon };
-        selectedWeather.value = { temp: current.temperature_2m, hum: current.relative_humidity_2m, wind: current.wind_speed_10m, dir: current.wind_direction_10m };
-
-        const dryness = 0.65;
-        let baseRisk = (current.wind_speed_10m * 0.40) + (current.temperature_2m * 0.85) + (dryness * 35.0) + ((100 - current.relative_humidity_2m) * 0.30) - 10;
-
-        gridLayers.value.clearLayers();
-        let maxRisk = 0;
-        const step = 0.05;
-
-        for (let i = -2; i <= 2; i++) {
-          for (let j = -2; j <= 2; j++) {
-            const pLat = lat + (i * step);
-            const pLon = lon + (j * step);
-            const localRisk = Math.min(Math.max(baseRisk + (Math.random() * 6 - 3), 0), 100);
-            if(localRisk > maxRisk) maxRisk = localRisk;
-
-            let color = '#ffcc00';
-            if(localRisk >= 68) color = '#ff0033';
-            if(localRisk < 40) color = '#00ff66';
-
-            const bounds = [[pLat - step/2, pLon - step/2], [pLat + step/2, pLon + step/2]];
-            const rect = L.rectangle(bounds, { color: '#ffffff', weight: 1, fillColor: color, fillOpacity: 0.55 });
-            rect.bindPopup(`<div class="popup-content"><b>Local Cell Data:</b><br>Risk: <b style="color:${color}">${localRisk.toFixed(1)}%</b><br>Temp: ${current.temperature_2m}°C<br>Wind: ${current.wind_speed_10m} km/h<br>Humidity: ${current.relative_humidity_2m}%</div>`);
-            gridLayers.value.addLayer(rect);
-          }
-        }
-        selectedRisk.value = maxRisk.toFixed(1);
-        map.value.flyTo([lat, lon], 9, { animate: true, duration: 1.0 });
-      })
-      .catch(err => alert("Error retrieving weather data for this location."));
-}
-
-function triggerBackendSync() {
-  alert("Querying NASA satellites... Please wait (this may take a few seconds).");
-  axios.post('http://localhost:8080/api/v1/sync/trigger')
-      .then(response => {
-        alert("Full synchronization successful! Data is loading onto the map.");
-        fetchHotspots();
-      })
-      .catch(error => {
-        alert("❌ Error communicating with the backend server! Check the IntelliJ console.");
-      });
-}
-
-function setupWebSockets() {
-  const stompClient = new Client({
-    brokerURL: 'ws://localhost:8080/ws-wildfire',
-    onConnect: () => {
-      stompClient.subscribe('/topic/alerts', (message) => {
-        latestAlert.value = JSON.parse(message.body);
-        setTimeout(() => latestAlert.value = null, 8000);
-        fetchHotspots();
-      });
-    }
-  });
-  stompClient.activate();
-}
-
-function fetchHotspots() {
-  axios.get('http://localhost:8080/api/v1/regions')
-      .then(response => {
-        hotspots.value = response.data;
-        renderHotspotMarkers();
-      })
-      .catch(error => console.error("Error fetching regions:", error));
-}
+});
+onBeforeUnmount(() => {
+  syncTimers.forEach(clearTimeout);
+  clearTimeout(alertTimer);
+  if (stompClient) stompClient.deactivate();
+  if (map.value) map.value.remove();
+});
 </script>
 
 <style>
